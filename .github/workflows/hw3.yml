@@ -1,0 +1,53 @@
+name: "C++ ip_addr"
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+    paths:
+      - "hw3/**"
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+        with:
+          submodules: true
+      - run: sudo apt-get update && sudo apt-get install libboost-test-dev -y
+      - run: |
+          cd hw3 
+          cmake . -DPATCH_VERSION=${{ github.run_number }} -DWITH_BOOST_TEST=ON
+      - run: |
+          cd hw3
+          cmake --build .
+      - run: |
+          cd hw3 
+          cmake --build . --target package
+      - name: Generate unique release tag
+        id: generate_tag
+        run: |
+          TAG_NAME="release_allocator-${{ github.run_number }}-$(date +%Y%m%d%H%M%S)"
+          echo "Generated tag: $TAG_NAME"
+          echo "tag_name=$TAG_NAME" >> $GITHUB_ENV 
+      - name: Create Release
+        id: create_release
+        uses: actions/create-release@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name: ${{ env.tag_name }}
+          release_name: Release ${{ env.tag_name }}
+          draft: false
+          prerelease: false
+      - name: Upload Release Asset
+        id: upload-release-asset
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: ./hw3/allocator-0.0.${{ github.run_number }}-Linux.deb
+          asset_name: allocator-0.0.${{ github.run_number }}-Linux.deb
+          asset_content_type: application/vnd.debian.binary-package
